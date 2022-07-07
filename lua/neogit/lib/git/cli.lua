@@ -93,7 +93,11 @@ local configurations = {
       index = "--index",
     },
   },
-  rebase = config {},
+  rebase = config {
+    flags = {
+      interactive = "-i",
+    },
+  },
   reset = config {
     flags = {
       hard = "--hard",
@@ -396,7 +400,8 @@ local function new_job(cmd, args, cwd, _stdin, _env, show_popup, hide_text)
   end
 
   local cmd = "git " .. table.concat(args, " ")
-  local job = Job.new { cmd = cmd }
+  local job = Job.new { cmd = cmd, env = _env }
+
   job.cwd = cwd
 
   handle_new_cmd(job, show_popup, hide_text)
