@@ -1,3 +1,5 @@
+local RPC = require("neogit.lib.rpc")
+
 local fn = vim.fn
 local fmt = string.format
 
@@ -6,28 +8,27 @@ local M = {}
 function M.client()
   local nvim_server = vim.env.NVIM
 
-  local target = fn.fnamemodify(fn.argv()[1], ':p')
-  local ch = fn.sockconnect('pipe', nvim_server, { rpc = true })
+  local file_target = fn.fnamemodify(fn.argv()[1], ":p")
 
   local client = fn.serverstart()
-  local lua_cmd = fmt('lua require("neogit.remote").editor("%s", "%s")', target, client)
+  local lua_cmd = fmt('lua require("neogit.remote").editor("%s", "%s")', file_target, client)
 
-  vim.rpcrequest(ch, 'nvim_command', lua_cmd)
+  local rpc_server = RPC.create_connection(nvim_server)
+  rpc_server:send_cmd(lua_cmd)
 end
 
 function M.editor(target, client)
-  local editor = require('neogit.editor')
+  local editor = require("neogit.editor")
 
-  local ch = fn.sockconnect('pipe', client, { rpc = true })
-
+  local rpc_client = RPC.create_connection(client)
   local function send_client_quit()
-    vim.rpcnotify(ch, 'nvim_command', 'qall')
-    fn.chanclose(ch)
+    rpc_client:send_cmd_async("qall")
+    rpc_client:desconnect()
   end
 
-  if target:find('git%-rebase%-todo$') then
+  if target:find("git%-rebase%-todo$") then
     editor.rebase_editor(target, send_client_quit)
-  elseif target:find('COMMIT_EDITMSG$') then
+  elseif target:find("COMMIT_EDITMSG$") then
     editor.commit_editor(target, send_client_quit)
   else
     send_client_quit()

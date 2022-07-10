@@ -4,12 +4,25 @@ local input = require("neogit.lib.input")
 
 local M = {}
 
-function M.new(content, filename, on_close)
+-- @class CommitEditorBuffer
+-- @field content content of buffer
+-- @field filename filename of buffer
+-- @field on_unload callback distached on unload
+-- @field buffer Buffer
+-- @see Buffer
+-- @see Ui
+
+--- Creates a new CommitEditorBuffer
+-- @param content the content of buffer
+-- @param filename the filename of buffer
+-- @param on_unload the event dispatched on buffer unload
+-- @return CommitEditorBuffer
+function M.new(content, filename, on_unload)
   local instance = {
     content = content,
     filename = filename,
-    on_close = on_close,
-    buffer = nil
+    on_unload = on_unload,
+    buffer = nil,
   }
 
   setmetatable(instance, { __index = M })
@@ -31,15 +44,20 @@ function M:open()
         written = true
       end,
       ["BufUnload"] = function()
-        self.on_close()
         if written then
-          if config.values.disable_commit_confirmation or
-            input.get_confirmation("Are you sure you want to commit?") then
-            vim.cmd [[
+          if
+            config.values.disable_commit_confirmation
+            or input.get_confirmation("Are you sure you want to commit?")
+          then
+            vim.cmd([[
               silent g/^#/d
               silent w!
-            ]]
+            ]])
           end
+        end
+
+        if self.on_unload then
+          self.on_unload()
         end
       end,
     },
@@ -47,8 +65,8 @@ function M:open()
       n = {
         ["q"] = function(buffer)
           buffer:close(true)
-        end
-      }
+        end,
+      },
     },
     initialize = function(buffer)
       buffer:set_lines(0, -1, false, self.content)
@@ -57,8 +75,8 @@ function M:open()
       end
 
       -- NOTE: This avoids the user having to force to save the contents of the buffer.
-      vim.cmd[[silent w!]]
-    end
+      vim.cmd([[silent w!]])
+    end,
   }
 end
 
